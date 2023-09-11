@@ -1,11 +1,11 @@
 package main
 
 import (
-	. "msgpack/msgpack"
 	"bufio"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	. "msgpack/msgpack"
 	"os"
 	"os/signal"
 	"strings"
@@ -23,6 +23,7 @@ func main() {
 	}()
 
 	encodeTest()
+	decodeTest()
 	printInfo()
 	scanner := bufio.NewScanner(os.Stdin)
 	for scanner.Scan() {
@@ -31,7 +32,7 @@ func main() {
 		case "encode":
 			encodeInput()
 		case "decode":
-			fmt.Println("Not supported yet")
+			decodeInput()
 		case "exit":
 			os.Exit(0)
 		default:
@@ -107,6 +108,63 @@ func encodeInput() {
 	for i := 0; i < len(b); i++ {
 		fmt.Printf("%02x ", b[i])
 	}
+}
+
+func decodeTest() {
+	fmt.Println("\nDecode Example:")
+	datas := [][]byte{
+		{0x81, 0xa1, 0x4e, 0xcb, 0x3f, 0xb9, 0x99, 0x99, 0x99, 0x99, 0x99, 0x9a}, // {"N": 0.1}
+		{0x81, 0xa1, 0x4d, 0xc2},                                     // {"M":false}
+		{0x82, 0xa1, 0x4e, 0x00, 0xa1, 0x4d, 0xc2},                   // {"N": 0, "M": false}
+		{0x82, 0xA1, 0x4E, 0x92, 0x00, 0x01, 0xA1, 0x4D, 0xC2},       //{"N": []int{0, 1}, "M": false},
+		{0x81, 0xa1, 0x4e, 0x81, 0xa1, 0x4d, 0xa1, 0x30},             //{"N": {"M": "0"}},
+		{0x81, 0xA1, 0x4D, 0x92, 0x00, 0x01},                         // {"N": map[string]interface{}{"M": []int{0, 1}}},
+		{0x81, 0xA1, 0x4E, 0x81, 0xA1, 0x30, 0xA3, 0x31, 0x32, 0x33}, // {"N": s{"0": "123"}},
+	}
+	for i, data := range datas {
+		fmt.Print(i+1, ".", hex.EncodeToString(data))
+
+		var out map[string]interface{}
+		if err := Unmarshal(data, &out); err != nil {
+			fmt.Println(" MessagePack encoding error: ", err)
+			return
+		}
+
+		jsonData, err := json.Marshal(out)
+		if err != nil {
+			fmt.Println(" Error:", err)
+			return
+		}
+		fmt.Print(" ", string(jsonData))
+		fmt.Println("")
+	}
+}
+
+func decodeInput() {
+	fmt.Print("Enter Msgpack Hex String Format: ")
+	scanner := bufio.NewScanner(os.Stdin)
+	scanner.Scan()
+	input := scanner.Text()
+
+	inputByte, err := hex.DecodeString(input)
+	if err != nil {
+		fmt.Println("Error:", err)
+		return
+	}
+
+	var data map[string]interface{}
+	if err := Unmarshal(inputByte, &data); err != nil {
+		fmt.Println("Unmarshal error:", err)
+		return
+	}
+
+	decodeData, err := json.Marshal(data)
+	if err != nil {
+		fmt.Println("Error:", err)
+		return
+	}
+
+	fmt.Println(string(decodeData))
 }
 
 func printInfo() {
